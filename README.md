@@ -4,7 +4,7 @@ A simple Telegram bot, written in Python 3.
 
 [Try it](https://telegram.me/kuuma_bot)
 
-Version: 0.9.1
+Version: 0.9.2
 
 ## Warning
 

@@ -3,13 +3,11 @@
 # bot.py - A Simple Telegram Bot
 # Using python3 for Unicode support
 
-# Version: 0.9.1
-# Final Check: 2016.10.16 23:53:00
+# Version: 0.9.2
+# Final Check: 2016.10.17 15:11:00
 # Update Log:
-#     1. More Functions
-#     2. Purified Code
-#     3. Output Chinese
-#     4. Bug Fixed
+# 1. Bug Fixed in Moe
+# 2. Timer allow inputs like '13:02'
 
 import telepot
 import requests
@@ -127,7 +125,7 @@ def bot_help(chat_id):
 # 关于
 
 def bot_about(chat_id):
-    about_msg = '版本：0.9.1 ，<a href="https://github.com/kurubot/kuuma_bot">查看源码</a>。'
+    about_msg = '版本：0.9.2 ，<a href="https://github.com/kurubot/kuuma_bot">查看源码</a> 。'
     bot.sendMessage(chat_id, about_msg, parse_mode='HTML')
 
 # 错误信息
@@ -226,7 +224,7 @@ def moe(cmd, chat_id):
             req = pq(url=link)
             # 结果抓取
             search_result = req.find('.mw-search-results')
-            links = search_result.find('.mw-search-result-heading a')
+            links = search_result.find('.mw-search-result-heading>a')
             abs = search_result.find('.searchresult')
             # 格式化输出
             titles = [i.text().replace(' ','') for i in links.items()]
@@ -304,18 +302,48 @@ def stack(cmd, chat_id):
     else:
         bot_error(chat_id)
 
+# Timer 计时器（测试中）
+
 def timer(cmd, chat_id):
     command = parse_cmd(cmd, '/timer')
-    try:
-        command = int(command)
-        if command > 100 or command < 0:
-            bot.sendMessage(chat_id, '请输入 0 到 100 间的整数~')
-        else:
-            bot.sendMessage(chat_id, '定时器设好啦~ %d 分钟后熊骑士会提醒你的哦~' % command)
-            time.sleep(command*60)
-            bot.sendMessage(chat_id, '定时器时间到！')
-    except:
-        bot.sendMessage(chat_id, '出错啦！')
+    if command:
+        try:
+            if ':' in command:
+                [hours, minutes] = command.split(':')
+                # 处理输入
+                hours = int(hours)
+                if not hours in range(0,24):
+                    bot.sendMessage(chat_id, '请使用 24 小时时制~')
+                    return
+                minutes = int(minutes)
+                if not minutes in range(0,60):
+                    bot.sendMessage(chat_id, '分钟格式输入有误~')
+                    return
+                # 处理小时部分
+                sys_hours = time.localtime(time.time()).tm_hour
+                hours = hours - sys_hours
+                if hours < 0:
+                    hours += 24
+                # 处理分钟部分
+                sys_minutes = time.localtime(time.time()).tm_min
+                minutes = minutes + hours * 60 - sys_minutes - 1
+                seconds = 60 - time.localtime(time.time()).tm_sec
+            else:
+                minutes = int(command)
+                seconds = 0
+            if not minutes in range(0,720):
+                bot.sendMessage(chat_id, '请输入 0 到 720 间的整数~')
+                return
+            if seconds:
+                bot.sendMessage(chat_id, '闹钟设好啦~ 熊骑士会在 %s 提醒你的哦~' % command)
+            else:
+                bot.sendMessage(chat_id, '定时器设好啦~ %d 分钟后熊骑士会提醒你的哦~' %     minutes)
+            time.sleep(minutes * 60 + seconds)
+            bot.sendMessage(chat_id, '时间到啦！')
+        except:
+            bot.sendMessage(chat_id, '出错啦！')
+    else:
+        bot_error(chat_id)
 
 # URL 编码
 
