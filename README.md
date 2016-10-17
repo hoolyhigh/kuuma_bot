@@ -26,7 +26,8 @@ pip3 install pyquery
 * Search in Wikipedia
 * Search in Stack Overflow
 * Generate QR Codes (Using Zxing Generator)
-* Simple Math Cal Using api.math.js
+* Simple Math Cal Using http://api.mathjs.org
+* Timer and Alarm
 * ...
 
 ## Bug
