@@ -4,11 +4,24 @@ A simple Telegram bot, written in Python 3.
 
 [Try it](https://telegram.me/kuuma_bot)
 
-Version: 0.9.2
+Version: 0.9.3
 
 ## Warning
 
 I just learnt Python a few hours and my code is awful...
+
+## Update Log
+
+### v0.9.3
+
+1. Qrcode modify for Shadowsocks-Android URLs
+2. Timer allow memos
+3. Add check meminfo for admin 
+
+### v0.9.2
+
+1. Bug fixed in Moe
+2. Timer allow alarm inputs like '13:02'
 
 ## Dependency
 

@@ -3,15 +3,18 @@
 # bot.py - A Simple Telegram Bot
 # Using python3 for Unicode support
 
-# Version: 0.9.2
-# Final Check: 2016.10.17 15:11:00
+# Version: 0.9.3
+# Final Check: 2016.10.19 03:00:00
 # Update Log:
-# 1. Bug Fixed in Moe
-# 2. Timer allow inputs like '13:02'
+# 1. Qrcode modify for Shadowsocks-Android URLs
+# 2. Timer allow memos
+# 3. Add check meminfo for admin 
 
 import telepot
 import requests
 import time
+import subprocess
+
 from threading import Thread
 from base64 import b64encode, b64decode
 from urllib.parse import quote, unquote
@@ -79,6 +82,8 @@ def handle(msg):
                     reply_msg(cmd)
                 elif cmd.startswith('/send'):
                     send_msg(cmd)
+                elif cmd.startswith('/mem'):
+                    check_mem()
             # 命令无法识别，返回错误信息
             else:
                 bot_error(chat_id)
@@ -125,7 +130,12 @@ def bot_help(chat_id):
 # 关于
 
 def bot_about(chat_id):
-    about_msg = '版本：0.9.2 ，<a href="https://github.com/kurubot/kuuma_bot">查看源码</a> 。'
+    about_msg = '''版本：0.9.3 ，<a href="https://github.com/kurubot/kuuma_bot">查看源码</a> 。
+    
+    更新日志：
+    1. /timer 支持添加备注啦！也可以试试设置闹钟（UTC+8）哦~
+    2. /qrcode 支持 Shadowsocks-Android 的 URL 啦！
+    '''
     bot.sendMessage(chat_id, about_msg, parse_mode='HTML')
 
 # 错误信息
@@ -275,6 +285,11 @@ def panc(cmd, chat_id):
 def qrcode(cmd, chat_id):
     command = parse_cmd(cmd, '/qrcode')
     if command:
+        # 加入对 Shadowsocks-Android 分享 URL 的支持
+        if command.startswith('ss://'):
+            missing = (len(command) + 3) % 4
+            if missing:
+                command += '=' * (4 - missing)
         command = quote(command)
         bot.sendMessage(chat_id, 'https://zxing.org/w/chart?cht=qr&chs=350x350&chld=L&choe=UTF-8&chl=%s' % command)
     else:
@@ -308,8 +323,12 @@ def timer(cmd, chat_id):
     command = parse_cmd(cmd, '/timer')
     if command:
         try:
+            # 加入备忘功能
+            memo = ''
+            if ' ' in command:
+                command, memo = command.split(' ')
             if ':' in command:
-                [hours, minutes] = command.split(':')
+                hours, minutes = command.split(':')
                 # 处理输入
                 hours = int(hours)
                 if not hours in range(0,24):
@@ -335,11 +354,20 @@ def timer(cmd, chat_id):
                 bot.sendMessage(chat_id, '请输入 0 到 720 间的整数~')
                 return
             if seconds:
-                bot.sendMessage(chat_id, '闹钟设好啦~ 熊骑士会在 %s 提醒你的哦~' % command)
+                if memo:
+                    bot.sendMessage(chat_id, '闹钟设好啦~ 熊骑士会在 %s 提醒你 %s 的哦~' % (command, memo) )
+                else:
+                    bot.sendMessage(chat_id, '闹钟设好啦~ 熊骑士会在 %s 提醒你的哦~' % command)
             else:
-                bot.sendMessage(chat_id, '定时器设好啦~ %d 分钟后熊骑士会提醒你的哦~' %     minutes)
+                if memo:
+                    bot.sendMessage(chat_id, '定时器设好啦~ %d 分钟后熊骑士会提醒你 %s 的哦~' % (minutes, memo) )
+                else:
+                    bot.sendMessage(chat_id, '定时器设好啦~ %d 分钟后熊骑士会提醒你的哦~' % minutes)
             time.sleep(minutes * 60 + seconds)
-            bot.sendMessage(chat_id, '时间到啦！')
+            if memo:
+                bot.sendMessage(chat_id, '%s 时间到啦！' % memo )
+            else:
+                bot.sendMessage(chat_id, '时间到啦！')
         except:
             bot.sendMessage(chat_id, '出错啦！')
     else:
@@ -412,7 +440,7 @@ def reply_msg(cmd):
     except:
         bot.sendMessage(admin, '回复信息失败。')
 
-# admin 命令：转发信息
+# Admin 命令：转发信息
 
 def send_msg(cmd):
     try:
@@ -422,6 +450,19 @@ def send_msg(cmd):
         bot.forwardMessage(reply_id, admin, message_id)
     except:
         bot.sendMessage(admin, '转发信息失败。')
+
+# Admin 命令：检查内存占用情况
+
+def check_mem():
+    try:
+        memory = subprocess.run(['cat', '/proc/meminfo'], check=True, stdout=subprocess.PIPE).stdout.decode('utf-8').replace('        ','  ').split('\n')
+        message = 'Mem:\n\n'
+        for i in range(4):
+            message += memory[i]
+            message += '\n'
+        bot.sendMessage(admin, message)
+    except:
+        bot.sendMessage(admin, '内存检查出错！')
 
 # bot 开始运行
 
