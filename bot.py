@@ -3,12 +3,11 @@
 # bot.py - A Simple Telegram Bot
 # Using python3 for Unicode support
 
-# Version: 0.9.3
-# Final Check: 2016.10.19 03:00:00
+# Version: 0.9.4
+# Final Check: 2016.10.19 04:00:00
 # Update Log:
-# 1. Qrcode modify for Shadowsocks-Android URLs
-# 2. Timer allow memos
-# 3. Add check meminfo for admin 
+# 1. Bug Fixed
+# 2. Add Check Server Info for Admin 
 
 import telepot
 import requests
@@ -37,6 +36,7 @@ def handle(msg):
     # 文本信息处理
     if content_type == 'text':
         cmd = msg['text']
+        print(msg['text'])
         if cmd.startswith('/'): 
             # 基础命令
             if cmd.startswith('/start'): 
@@ -82,8 +82,8 @@ def handle(msg):
                     reply_msg(cmd)
                 elif cmd.startswith('/send'):
                     send_msg(cmd)
-                elif cmd.startswith('/mem'):
-                    check_mem()
+                elif cmd.startswith('/server'):
+                    check_server()
             # 命令无法识别，返回错误信息
             else:
                 bot_error(chat_id)
@@ -130,7 +130,7 @@ def bot_help(chat_id):
 # 关于
 
 def bot_about(chat_id):
-    about_msg = '''版本：0.9.3 ，<a href="https://github.com/kurubot/kuuma_bot">查看源码</a> 。
+    about_msg = '''版本：0.9.4 ，<a href="https://github.com/kurubot/kuuma_bot">查看源码</a> 。
     
     更新日志：
     1. /timer 支持添加备注啦！也可以试试设置闹钟（UTC+8）哦~
@@ -326,7 +326,9 @@ def timer(cmd, chat_id):
             # 加入备忘功能
             memo = ''
             if ' ' in command:
-                command, memo = command.split(' ')
+                text = command
+                command = command.split()[0]
+                memo = text.lstrip(command).strip(' ')
             if ':' in command:
                 hours, minutes = command.split(':')
                 # 处理输入
@@ -423,7 +425,8 @@ def wiki(lang, cmd, chat_id):
 
 def get_msg(cmd):
     try:
-        from_chat_id, message_id = cmd.lstrip('/get').strip(' ').split(' ')
+        command = parse_cmd(cmd, '/get')
+        from_chat_id, message_id = command.split()
         from_chat_id = int(from_chat_id)
         message_id = int(message_id)
         bot.forwardMessage(admin, from_chat_id, message_id)
@@ -434,7 +437,9 @@ def get_msg(cmd):
 
 def reply_msg(cmd):
     try: 
-        reply_id, message = cmd.lstrip('/reply').strip(' ').split(' ')
+        message = parse_cmd(cmd, '/reply')
+        reply_id = message.split()[0]
+        message = message.lstrip(reply_id).strip(' ')
         reply_id = int(reply_id)
         bot.sendMessage(reply_id, message)
     except:
@@ -444,7 +449,8 @@ def reply_msg(cmd):
 
 def send_msg(cmd):
     try:
-        reply_id, message_id = cmd.lstrip('/send').strip(' ').split(' ')
+        command = parse_cmd(cmd, '/send')
+        reply_id, message_id = command.split()
         reply_id = int(reply_id)
         message_id = int(message_id)
         bot.forwardMessage(reply_id, admin, message_id)
@@ -453,16 +459,27 @@ def send_msg(cmd):
 
 # Admin 命令：检查内存占用情况
 
-def check_mem():
+def check_server():
     try:
-        memory = subprocess.run(['cat', '/proc/meminfo'], check=True, stdout=subprocess.PIPE).stdout.decode('utf-8').replace('        ','  ').split('\n')
-        message = 'Mem:\n\n'
+        # 通过 top 检查 CPU 及内存
+        sysinfo = subprocess.run(['top','-b','-n','1'], check=True, stdout=subprocess.PIPE).stdout.decode('utf-8').split('\n')
+        message = 'Server info:\n\n'
         for i in range(4):
-            message += memory[i]
-            message += '\n'
+            message += sysinfo[i]
+            message += '\n\n'
+        # 通过 ifconfig 检查流量 
+        message += 'Network Traffic:\n'
+        message += subprocess.run(['ifconfig', 'venet0'], stdout=subprocess.PIPE).stdout.decode('utf-8').strip('\n').split('\n')[-1].strip().replace('  ','\n')
+        message += '\n\n'
+        # 通过 df 检查硬盘
+        message += 'Disk Space:\n'
+        disk = subprocess.run(['df','-h'], check=True, stdout=subprocess.PIPE).stdout.decode('utf-8').split('\n')
+        table_head = disk[0].split()
+        disk_status = disk[1].split()
+        message = message + table_head[1] + ': ' + disk_status[1] + '  ' + table_head[4] + ': ' + disk_status[4] + '\n'
         bot.sendMessage(admin, message)
     except:
-        bot.sendMessage(admin, '内存检查出错！')
+        bot.sendMessage(admin, '系统检查出错！')
 
 # bot 开始运行
 
