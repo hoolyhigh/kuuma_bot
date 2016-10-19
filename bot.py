@@ -326,7 +326,9 @@ def timer(cmd, chat_id):
             # 加入备忘功能
             memo = ''
             if ' ' in command:
-                command, memo = command.split(' ')
+                text = command
+                command = command.split()[0]
+                memo = text.lstrip(command).strip(' ')
             if ':' in command:
                 hours, minutes = command.split(':')
                 # 处理输入
@@ -433,8 +435,10 @@ def get_msg(cmd):
 # Admin 命令：回复信息
 
 def reply_msg(cmd):
-    try: 
-        reply_id, message = cmd.lstrip('/reply').strip(' ').split(' ')
+    try:         
+        message = cmd.lstrip('/reply').strip(' ')
+        reply_id = message.split()[0]
+        message = message.lstrip(reply_id).strip(' ')
         reply_id = int(reply_id)
         bot.sendMessage(reply_id, message)
     except:
