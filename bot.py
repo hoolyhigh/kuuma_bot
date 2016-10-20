@@ -3,17 +3,17 @@
 # bot.py - A Simple Telegram Bot
 # Using python3 for Unicode support
 
-# Version: 0.9.4
+# Version: 0.9.5
 # Final Check: 2016.10.19 04:00:00
 # Update Log:
-# 1. Bug Fixed
-# 2. Add Check Server Info for Admin 
+# 1. Add Google Search (Experimental)
+# 2. Bug Fixed (HTML Escape)
 
 import telepot
 import requests
 import time
 import subprocess
-
+from cgi import escape
 from threading import Thread
 from base64 import b64encode, b64decode
 from urllib.parse import quote, unquote
@@ -52,6 +52,8 @@ def handle(msg):
                 b64en(cmd, chat_id)
             elif cmd.startswith('/b64de'):
                 b64de(cmd, chat_id)
+            elif cmd.startswith('/google'):
+                google(cmd, chat_id)
             elif cmd.startswith('/math'):
                 math(cmd, chat_id)
             elif cmd.startswith('/moe'):
@@ -109,33 +111,39 @@ def bot_welcome(chat_id):
 # 帮助信息
 
 def bot_help(chat_id):
-    help_msg = '''熊骑士命令帮助：\n
-    /baidu    使用百度搜索
-    /b64en    Base64 编码
-    /b64de    Base64 解码
-    /math     简单的数学计算
-    /moe      萌娘百科搜索（测试中）
-    /panc     胖次网盘搜索（测试中）
-    /qrcode   生成二维码
-    /stack    Stack Overflow 搜索
-    /timer    计时器（输入整分钟，测试中）
-    /urlen    URL 编码
-    /urlde    URL 解码
-    /wikien   搜索英文维基百科
-    /wikizh   搜索中文维基百科\n
-    还有什么需要熊骑士帮忙的吗？
-    '''
+    help_msg = '''
+熊骑士命令帮助：（记得加上参数啦QAQ）
+
+/baidu - 使用百度搜索
+/b64en - Base64 编码
+/b64de - Base64 解码
+/google - Google 搜索（测试中，请尽量不要频繁使用啦QAQ）
+/math - 简单的数学计算（也可以进行单位换算，比如 1 mile to km，感谢 api.mathjs.org）
+/moe - 萌娘百科搜索（测试中）
+/panc - 胖次网盘搜索（测试中）
+/qrcode - 生成二维码（感谢 zxing）
+/stack - Stack Overflow 搜索
+/timer - 计时器（输入整分钟，也可以输入时间（UTC+8），支持 12 小时以内，支持添加备忘）
+/urlen - URL 编码
+/urlde - URL 解码
+/wikien - 搜索英文维基百科
+/wikizh - 搜索中文维基百科
+
+还有什么需要熊骑士帮忙的吗？
+'''
     bot.sendMessage(chat_id, help_msg)
 
 # 关于
 
 def bot_about(chat_id):
-    about_msg = '''版本：0.9.4 ，<a href="https://github.com/kurubot/kuuma_bot">查看源码</a> 。
+    about_msg = '''
+版本：0.9.5 ，<a href="https://github.com/kurubot/kuuma_bot">查看源码</a> 。
     
-    更新日志：
-    1. /timer 支持添加备注啦！也可以试试设置闹钟（UTC+8）哦~
-    2. /qrcode 支持 Shadowsocks-Android 的 URL 啦！
-    '''
+更新日志：
+1. /timer 支持添加备注啦！也可以试试设置闹钟（UTC+8）哦~
+2. /qrcode 支持 Shadowsocks-Android 的 URL 啦！
+3. /google 功能上线啦！由于官方没有 API，请不要频繁使用啦，中国有句老话…… 
+'''
     bot.sendMessage(chat_id, about_msg, parse_mode='HTML')
 
 # 错误信息
@@ -209,6 +217,36 @@ def b64de(cmd, chat_id):
     else:
         bot_error(chat_id)
 
+# Google 搜索（试验中）
+
+def google(cmd, chat_id):
+    command = parse_cmd(cmd, '/google')
+    if command:
+        command = quote(command)
+        request_url = 'https://www.google.com/search?sclient=psy-ab&safe=off&q=%s' % command
+        ua_edge = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246'
+        message = '搜索结果：\n\n'
+        # 抓取搜索结果
+        try:
+            search = requests.get(request_url, headers={'User-agent': ua_edge})
+            result = pq(search.text).find('.rc')
+            # 对结果进行 HTML 转义，否则 Telegram 会报错
+            headings = [escape(i.text()) for  i in result.find('h3.r>a').items()]
+            links = [i.attr.href for  i in result.find('h3.r>a').items()]
+            abs = [escape(i.text()) for  i in result.find('span.st').items()]
+            # 生成搜索结果
+            num = len(links)
+            if num > 5:
+                num = 5
+            for i in range(num):
+                message += '%d. <a href="%s">%s</a>\n' % (i+1, links[i], headings[i])
+                message += '%s\n\n' % abs[i]
+            bot.sendMessage(chat_id, message, parse_mode='HTML')
+        except:
+            bot.sendMessage(chat_id, '搜索失败。')
+    else:
+        bot_error(chat_id)
+
 # Mathjs
 
 def math(cmd, chat_id):
@@ -237,9 +275,9 @@ def moe(cmd, chat_id):
             links = search_result.find('.mw-search-result-heading>a')
             abs = search_result.find('.searchresult')
             # 格式化输出
-            titles = [i.text().replace(' ','') for i in links.items()]
+            titles = [escape(i.text().replace(' ','')) for i in links.items()]
             urls = ['https://zh.moegirl.org'+i.attr('href') for i in links.items()]
-            preview = [i.text()+'...' for i in abs.items()]
+            preview = [escape(i.text()+'...') for i in abs.items()]
             message = '搜索结果：\n\n'
             num = len(urls)
             if num > 5:
@@ -262,10 +300,10 @@ def panc(cmd, chat_id):
         link = 'https://www.panc.cc/s/%s/' % command
         try:
             req = pq(url=link)
-            search_result = req.find('#search_result')
+            search_result = req('#search_result')
             # 查找标题
             titles = search_result.find('.b_title')
-            titles_text = [i.text().replace(' ','') for i in titles.items()] 
+            titles_text = [escape(i.text().replace(' ','')) for i in titles.items()] 
             # 查找链接
             urls = search_result.find('.a_url')
             urls_href = [i.attr('href') for i in urls.items()]
@@ -353,7 +391,7 @@ def timer(cmd, chat_id):
                 minutes = int(command)
                 seconds = 0
             if not minutes in range(0,720):
-                bot.sendMessage(chat_id, '请输入 0 到 720 间的整数~')
+                bot.sendMessage(chat_id, '设置的时间要在未来 12 小时以内哦~')
                 return
             if seconds:
                 if memo:
