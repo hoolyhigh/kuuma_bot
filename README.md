@@ -4,7 +4,7 @@ A simple Telegram bot, written in Python 3.
 
 [Try it](https://telegram.me/kuuma_bot)
 
-Version: 0.9.5
+Version: 0.9.7
 
 ## Warning
 
@@ -12,10 +12,15 @@ I just learnt Python a few hours and my code is awful...
 
 ## Update Log
 
+### v0.9.7 Happy New Year!
+
+1. Add `/zhihu` (Experimental).
+2. Add Unicode Conversion `/unien` and `unide`.
+
 ### v0.9.5
 
-1. Add `/google` (Experimental)
-2. Bug Fixed (HTML Escape)
+1. Add `/google` (Experimental).
+2. Bug Fixed (HTML Escape).
 
 ### v0.9.4
 

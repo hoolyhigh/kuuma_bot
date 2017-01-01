@@ -1,13 +1,13 @@
 # coding: utf-8
 
 # bot.py - A Simple Telegram Bot
-# Using python3 for Unicode support
+# Using Python3 for Unicode support
 
-# Version: 0.9.5
-# Final Check: 2016.10.19 04:00:00
+# Version: 0.9.7
+# Final Check: 2017.01.01 16:30:00
 # Update Log:
-# 1. Add Google Search (Experimental)
-# 2. Bug Fixed (HTML Escape)
+# 1. Add /zhihu
+# 2. Add /unide, /unien
 
 import telepot
 import requests
@@ -52,6 +52,8 @@ def handle(msg):
                 b64en(cmd, chat_id)
             elif cmd.startswith('/b64de'):
                 b64de(cmd, chat_id)
+            elif cmd.startswith('/echo'):
+                echo(cmd, chat_id)
             elif cmd.startswith('/google'):
                 google(cmd, chat_id)
             elif cmd.startswith('/math'):
@@ -68,6 +70,10 @@ def handle(msg):
                 # 使用子进程实现计时器
                 t1 = Thread(target=timer, args=(cmd, chat_id))
                 t1.start()
+            elif cmd.startswith('/unien'):
+                unien(cmd, chat_id)
+            elif cmd.startswith('/unide'):
+                unide(cmd, chat_id)
             elif cmd.startswith('/urlen'):
                 urlen(cmd, chat_id)
             elif cmd.startswith('/urlde'):
@@ -76,6 +82,8 @@ def handle(msg):
                 wiki('en', cmd, chat_id)
             elif cmd.startswith('/wikizh'):
                 wiki('zh', cmd, chat_id)
+            elif cmd.startswith('/zhihu'):
+                zhihu(cmd, chat_id)
             # Admin 命令
             elif chat_id == admin:
                 if cmd.startswith('/get'):
@@ -117,17 +125,19 @@ def bot_help(chat_id):
 /baidu - 使用百度搜索
 /b64en - Base64 编码
 /b64de - Base64 解码
-/google - Google 搜索（测试中，请尽量不要频繁使用啦QAQ）
-/math - 简单的数学计算（也可以进行单位换算，比如 1 mile to km，感谢 api.mathjs.org）
+/math - 简单的数学计算，也可以进行单位换算。
 /moe - 萌娘百科搜索（测试中）
 /panc - 胖次网盘搜索（测试中）
-/qrcode - 生成二维码（感谢 zxing）
+/qrcode - 生成二维码
 /stack - Stack Overflow 搜索
 /timer - 计时器（输入整分钟，也可以输入时间（UTC+8），支持 12 小时以内，支持添加备忘）
+/unien - Unicode 编码
+/unide - Unicode 解码
 /urlen - URL 编码
 /urlde - URL 解码
 /wikien - 搜索英文维基百科
 /wikizh - 搜索中文维基百科
+/zhihu - 知乎问题搜索
 
 还有什么需要熊骑士帮忙的吗？
 '''
@@ -136,14 +146,7 @@ def bot_help(chat_id):
 # 关于
 
 def bot_about(chat_id):
-    about_msg = '''
-版本：0.9.5 ，<a href="https://github.com/kurubot/kuuma_bot">查看源码</a> 。
-    
-更新日志：
-1. /timer 支持添加备注啦！也可以试试设置闹钟（UTC+8）哦~
-2. /qrcode 支持 Shadowsocks-Android 的 URL 啦！
-3. /google 功能上线啦！由于官方没有 API，请不要频繁使用啦，中国有句老话…… 
-'''
+    about_msg = '版本：0.9.7 ，<a href="https://github.com/kurubot/kuuma_bot">查看源码</a> 。'
     bot.sendMessage(chat_id, about_msg, parse_mode='HTML')
 
 # 错误信息
@@ -166,21 +169,20 @@ def baidu(cmd, chat_id):
     query = parse_cmd(cmd, '/baidu')
     # 判断内容是否为空
     if query:
-        query = quote(query)
-        link = 'http://www.baidu.com/s?wd=%s&pn=0&rn=5&tn=json' % query
+        link = 'http://www.baidu.com/s?wd=%s&pn=0&rn=5&tn=json' % quote(query)
         try:
             result = requests.get(link).json()
             data_list = result['feed']['entry']
             num = len(data_list)
             if num > 5:
                 num = 5
-            message = '搜索结果：\n\n'    
+            message = '%s 的百度搜索结果：\n\n' % escape(query) 
             for i in range(num):
                 message += '%d. <a href="%s">%s</a>\n' % (i+1, data_list[i]['url'], data_list[i]['title'])
                 message += '%s\n\n' % data_list[i]['abs']
             bot.sendMessage(chat_id, message, parse_mode='HTML')
         except:
-            bot.sendMessage(chat_id, '搜索失败。')
+            bot.sendMessage(chat_id, '%s 搜索失败。' % escape(query))
     else:
         bot_error(chat_id)
 
@@ -190,12 +192,11 @@ def baidu(cmd, chat_id):
 def b64en(cmd, chat_id):
     command = parse_cmd(cmd, '/b64en')
     if command:
-        command = command.encode('utf-8')
         try:
-            result = b64encode(command).decode('utf-8')
-            bot.sendMessage(chat_id, 'Base64 编码结果：%s' % result)
+            result = b64encode(command.encode('utf-8')).decode('utf-8')
+            bot.sendMessage(chat_id, '%s 的 Base64 编码结果：%s' % (command, result))
         except:
-            bot.sendMessage(chat_id, 'Base64 编码失败。')
+            bot.sendMessage(chat_id, '%s 的 Base64 编码失败。' % command)
     else:
         bot_error(chat_id)
 
@@ -211,21 +212,26 @@ def b64de(cmd, chat_id):
             command += '=' * (4 - missing)
         try:
             result = b64decode(command.encode('utf-8')).decode('utf-8')
-            bot.sendMessage(chat_id, 'Base64 解码结果: %s' % result)
+            bot.sendMessage(chat_id, '%s 的 Base64 解码结果: %s' % (command, result) )
         except:
-            bot.sendMessage(chat_id, 'Base64 解码失败。')
+            bot.sendMessage(chat_id, '%s 的 Base64 解码失败。' % command)
     else:
         bot_error(chat_id)
 
-# Google 搜索（试验中）
+# Echo 命令
+
+def echo(cmd, chat_id):
+    command = parse_cmd(cmd, '/echo')
+    bot.sendMessage(chat_id, command)
+
+# Google 搜索
 
 def google(cmd, chat_id):
     command = parse_cmd(cmd, '/google')
     if command:
-        command = quote(command)
-        request_url = 'https://www.google.com/search?sclient=psy-ab&safe=off&q=%s' % command
+        request_url = 'https://www.google.com/search?sclient=psy-ab&safe=off&q=%s' % quote(command)
         ua_edge = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246'
-        message = '搜索结果：\n\n'
+        message = '%s 的 Google 搜索结果：\n\n' % escape(command)
         # 抓取搜索结果
         try:
             search = requests.get(request_url, headers={'User-agent': ua_edge})
@@ -243,7 +249,7 @@ def google(cmd, chat_id):
                 message += '%s\n\n' % abs[i]
             bot.sendMessage(chat_id, message, parse_mode='HTML')
         except:
-            bot.sendMessage(chat_id, '搜索失败。')
+            bot.sendMessage(chat_id, '%s 搜索失败。' % escape(command))
     else:
         bot_error(chat_id)
 
@@ -266,8 +272,7 @@ def math(cmd, chat_id):
 def moe(cmd, chat_id):
     command = parse_cmd(cmd, '/moe')
     if command:
-        command = quote(command)
-        link = 'https://zh.moegirl.org/index.php?search=%s&fulltext=Search' % command
+        link = 'https://zh.moegirl.org/index.php?search=%s&fulltext=Search' % quote(command)
         try:
             req = pq(url=link)
             # 结果抓取
@@ -278,7 +283,7 @@ def moe(cmd, chat_id):
             titles = [escape(i.text().replace(' ','')) for i in links.items()]
             urls = ['https://zh.moegirl.org'+i.attr('href') for i in links.items()]
             preview = [escape(i.text()+'...') for i in abs.items()]
-            message = '搜索结果：\n\n'
+            message = '%s 的萌娘百科搜索结果：\n\n' % escape(command)
             num = len(urls)
             if num > 5:
                 num = 5
@@ -287,7 +292,7 @@ def moe(cmd, chat_id):
                 message += '%s\n\n' % preview[i]
             bot.sendMessage(chat_id, message, parse_mode='HTML')
         except:
-            bot.sendMessage(chat_id, '搜索失败。')
+            bot.sendMessage(chat_id, '%s 搜索失败，可能是因为萌娘百科服务器维护中。' % escape(command))
     else:
         bot_error(chat_id)
 
@@ -296,8 +301,7 @@ def moe(cmd, chat_id):
 def panc(cmd, chat_id):
     command = parse_cmd(cmd, '/panc')
     if command:
-        command = quote(command)
-        link = 'https://www.panc.cc/s/%s/' % command
+        link = 'https://www.panc.cc/s/%s/' % quote(command)
         try:
             req = pq(url=link)
             search_result = req('#search_result')
@@ -309,12 +313,12 @@ def panc(cmd, chat_id):
             urls_href = [i.attr('href') for i in urls.items()]
             # 输出结果
             num = len(urls_href)
-            message = '搜索结果：\n\n'
+            message = '%s 的网盘搜索结果：\n\n' % escape(command)
             for i in range(num):
                 message += '%d. <a href="%s">%s</a>\n\n' % (i+1, urls_href[i], titles_text[i])
             bot.sendMessage(chat_id, message, parse_mode='HTML')
         except:
-            bot.sendMessage(chat_id, '搜索失败。')
+            bot.sendMessage(chat_id, '%s 搜索失败。' % escape(command))
     else:
         bot_error(chat_id)
 
@@ -338,20 +342,19 @@ def qrcode(cmd, chat_id):
 def stack(cmd, chat_id):
     command = parse_cmd(cmd, '/stack')
     if command:
-        command = quote(command)
-        link = 'https://api.stackexchange.com/2.2/search/advanced?order=desc&sort=votes&q=%s&accepted=True&site=stackoverflow&filter=!-MOiNm40F1YTH5WjEK.BGQ_jCyid6o_27' % command
+        link = 'https://api.stackexchange.com/2.2/search/advanced?order=desc&sort=votes&q=%s&accepted=True&site=stackoverflow&filter=!-MOiNm40F1YTH5WjEK.BGQ_jCyid6o_27' % quote(command)
         try:
             result = requests.get(link).json()
             data = result['items']
             num = len(data)
             if num > 5:
                 num = 5
-            message = '搜索结果：\n\n'
+            message = '%s 的 Stack Overflow 搜索结果：\n\n' % escape(command)
             for i in range(num):
                 message += '%d. <a href="%s">%s</a>\n' % (i+1, data[i]['link'], data[i]['title'])
             bot.sendMessage(chat_id, message, parse_mode='HTML')
         except:
-            bot.sendMessage(chat_id, '搜索失败。')
+            bot.sendMessage(chat_id, '%s 搜索失败。' % escape(command) )
     else:
         bot_error(chat_id)
 
@@ -413,16 +416,39 @@ def timer(cmd, chat_id):
     else:
         bot_error(chat_id)
 
+# Unicode 编码
+
+def unien(cmd, chat_id):
+    command = parse_cmd(cmd, '/unien')
+    if command:
+        try:
+            bot.sendMessage(chat_id, '%s 的 Unicode 编码结果：%s' % (command, command.encode('unicode-escape').decode('ascii') ) )
+        except:
+            bot.sendMessage(chat_id, '%s Unicode 编码失败。' % command)
+    else:
+        bot_error(chat_id)
+
+# Unicode 解码
+
+def unide(cmd, chat_id):
+    command = parse_cmd(cmd, '/unide')
+    if command:
+        try:
+            bot.sendMessage(chat_id, '%s 的 Unicode 解码结果：%s' % (command, command.encode('ascii').decode('unicode-escape') ) )
+        except:
+            bot.sendMessage(chat_id, '%s Unicode 解码失败。' % command)
+    else:
+        bot_error(chat_id)
+
 # URL 编码
 
 def urlen(cmd, chat_id):
     command = parse_cmd(cmd, '/urlen')
     if command:
         try:
-            command = quote(command)
-            bot.sendMessage(chat_id, 'URL 编码结果：%s' % command)
+            bot.sendMessage(chat_id, '%s 的 URL 编码结果：%s' % (command, quote(command)))
         except:
-            bot.sendMessage(chat_id, 'URL 编码失败。')
+            bot.sendMessage(chat_id, '%s 的 URL 编码失败。' % command)
     else:
         bot_error(chat_id)
 
@@ -432,10 +458,9 @@ def urlde(cmd, chat_id):
     command = parse_cmd(cmd, '/urlde')
     if command:
         try:
-            command = unquote(command)
-            bot.sendMessage(chat_id, 'URL 解码结果：%s' % command)
+            bot.sendMessage(chat_id, '%s 的 URL 解码结果：%s' % (command, unquote(command)))
         except:
-            bot.sendMessage(chat_id, 'URL 解码失败。')
+            bot.sendMessage(chat_id, '%s 的 URL 解码失败。' % command)
     else:
         bot_error(chat_id)
 
@@ -444,18 +469,46 @@ def urlde(cmd, chat_id):
 def wiki(lang, cmd, chat_id):
     command = parse_cmd(cmd, '/wiki%s' % lang)
     if command:
-        command = quote(command)
-        link = 'https://%s.wikipedia.org/w/api.php?action=opensearch&format=json&search=%s&namespace=0&limit=5' % (lang, command)
+        link = 'https://%s.wikipedia.org/w/api.php?action=opensearch&format=json&search=%s&namespace=0&limit=5' % (lang, quote(command))
         try:
             result = requests.get(link).json()
             num = len(result[1])
-            message = '搜索结果：\n\n'
+            message = '%s 的维基百科搜索结果：\n\n' % escape(command)
             for i in range(num):
                 message += '%d. <a href="%s">%s</a>\n' % (i+1, result[3][i], result[1][i])
                 message += '%s\n\n' % result[2][i]
             bot.sendMessage(chat_id, message, parse_mode='HTML')
         except:
-            bot.sendMessage(chat_id, '搜索失败。')
+            bot.sendMessage(chat_id, '%s 搜索失败。' % escape(command))
+    else:
+        bot_error(chat_id)
+
+# 知乎问题搜索
+
+def zhihu(cmd, chat_id):
+    command = parse_cmd(cmd, '/zhihu')
+    if command:
+        request_url = 'http://zhihu.sogou.com/zhihu?query=%s&ie=utf8' % quote(command)
+        ua_edge = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246'
+        message = '%s 的知乎搜索结果：\n\n' % escape(command)
+        # 抓取搜索结果
+        try:
+            search = requests.get(request_url, headers={'User-agent': ua_edge})
+            result = pq(search.text).find('.box-result')
+            # 对结果进行 HTML 转义，否则 Telegram 会报错
+            headings = [escape(i.text()) for  i in result.find('h4.about-list-title>a').items()]
+            links = [i.attr.href for  i in result.find('h4.about-list-title>a').items()]
+            abs = [escape(i.text()) for  i in result.find('p.about-text>a').items()]
+            # 生成搜索结果
+            num = len(links)
+            if num > 5:
+                num = 5
+            for i in range(num):
+                message += '%d. <a href="%s">%s</a>\n' % (i+1, links[i], headings[i])
+                message += '%s\n\n' % abs[i]
+            bot.sendMessage(chat_id, message, parse_mode='HTML')
+        except:
+            bot.sendMessage(chat_id, '%s 搜索失败。' % escape(command))
     else:
         bot_error(chat_id)
 
