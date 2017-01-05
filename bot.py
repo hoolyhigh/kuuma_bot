@@ -3,11 +3,10 @@
 # bot.py - A Simple Telegram Bot
 # Using Python3 for Unicode support
 
-# Version: 0.9.7
-# Final Check: 2017.01.01 16:30:00
+# Version: 0.9.8
+# Final Check: 2017.01.05 16:00:00
 # Update Log:
-# 1. Add /zhihu
-# 2. Add /unide, /unien
+# 1. Add /music
 
 import telepot
 import requests
@@ -60,6 +59,8 @@ def handle(msg):
                 math(cmd, chat_id)
             elif cmd.startswith('/moe'):
                 moe(cmd, chat_id)
+            elif cmd.startswith('/music'):
+                music(cmd, chat_id)
             elif cmd.startswith('/panc'):
                 panc(cmd, chat_id)
             elif cmd.startswith('/qrcode'):
@@ -122,22 +123,23 @@ def bot_help(chat_id):
     help_msg = '''
 熊骑士命令帮助：（记得加上参数啦QAQ）
 
-/baidu - 使用百度搜索
-/b64en - Base64 编码
-/b64de - Base64 解码
-/math - 简单的数学计算，也可以进行单位换算。
-/moe - 萌娘百科搜索（测试中）
-/panc - 胖次网盘搜索（测试中）
-/qrcode - 生成二维码
-/stack - Stack Overflow 搜索
-/timer - 计时器（输入整分钟，也可以输入时间（UTC+8），支持 12 小时以内，支持添加备忘）
-/unien - Unicode 编码
-/unide - Unicode 解码
-/urlen - URL 编码
-/urlde - URL 解码
-/wikien - 搜索英文维基百科
-/wikizh - 搜索中文维基百科
-/zhihu - 知乎问题搜索
+  /baidu - 使用百度搜索
+  /b64en - Base64 编码
+  /b64de - Base64 解码
+  /math - 简单的数学计算，也可以进行单位换算。
+  /moe - 萌娘百科搜索（测试中）
+  /music - 网易云音乐搜索（测试中）
+  /panc - 胖次网盘搜索（测试中）
+  /qrcode - 生成二维码
+  /stack - Stack Overflow 搜索
+  /timer - 计时器（输入整分钟，也可以输入时间（UTC+8），支持 12 小时以内，支持添加备忘）
+  /unien - Unicode 编码
+  /unide - Unicode 解码
+  /urlen - URL 编码
+  /urlde - URL 解码
+  /wikien - 搜索英文维基百科
+  /wikizh - 搜索中文维基百科
+  /zhihu - 知乎问题搜索
 
 还有什么需要熊骑士帮忙的吗？
 '''
@@ -146,7 +148,7 @@ def bot_help(chat_id):
 # 关于
 
 def bot_about(chat_id):
-    about_msg = '版本：0.9.7 ，<a href="https://github.com/kurubot/kuuma_bot">查看源码</a> 。'
+    about_msg = '版本：0.9.8 ，<a href="https://github.com/kurubot/kuuma_bot">查看源码</a> 。'
     bot.sendMessage(chat_id, about_msg, parse_mode='HTML')
 
 # 错误信息
@@ -227,6 +229,9 @@ def echo(cmd, chat_id):
 # Google 搜索
 
 def google(cmd, chat_id):
+    if chat_id != admin and chat_id != -172107627 :
+         bot_error(chat_id)
+         return
     command = parse_cmd(cmd, '/google')
     if command:
         request_url = 'https://www.google.com/search?sclient=psy-ab&safe=off&q=%s' % quote(command)
@@ -293,6 +298,28 @@ def moe(cmd, chat_id):
             bot.sendMessage(chat_id, message, parse_mode='HTML')
         except:
             bot.sendMessage(chat_id, '%s 搜索失败，可能是因为萌娘百科服务器维护中。' % escape(command))
+    else:
+        bot_error(chat_id)
+
+# 网易云音乐搜索，感谢村雨的 go-musid！https://github.com/loadfield/go-music/
+
+def music(cmd, chat_id):
+    query = parse_cmd(cmd, '/music')
+    if query:
+        url = 'http://music.163.com/api/search/pc'
+        data = 'offset=0&limit=5&type=1&s=' + quote(query)
+        headers = {'Cookie': 'appver=1.5.0.75771', 'Content-Type': 'application/x-www-form-urlencoded', 'Referer': 'http://music.163.com/'}
+        message = '%s 的网易云音乐搜索结果：\n\n' % escape(query)
+        music_results = requests.post(url, data=data, headers=headers).json()
+        songs = music_results['result']['songs']
+        for i in range(len(songs)):
+            message += '%d. %s - %s \n' % (i+1, escape(songs[i]['name']), escape(songs[i]['artists'][0]['name']) )
+            message += '专辑：%s \n' % escape(songs[i]['album']['name'])
+            message += '<a href="%s">试听音乐</a> | ' % ('http://music.163.com/#/song?id=' + str(songs[i]['id']) )
+            message += '<a href="%s">下载音乐</a> | ' % ('https://p' + songs[i]['mp3Url'].lstrip('http://m') )
+            message += '<a href="%s">查看专辑</a> \n\n' % ('http://music.163.com/#/album?id=' + str(songs[i]['album']['id']) )
+        message += '注意：下载音乐请手动修改扩展名~\n<a href="%s">查询更多音乐</a>' % 'https://music.liuli.lol/song'
+        bot.sendMessage(chat_id, message, parse_mode='HTML')
     else:
         bot_error(chat_id)
 

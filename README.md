@@ -4,13 +4,17 @@ A simple Telegram bot, written in Python 3.
 
 [Try it](https://telegram.me/kuuma_bot)
 
-Version: 0.9.7
+Version: 0.9.8
 
 ## Warning
 
 I just learnt Python a few hours and my code is awful...
 
 ## Update Log
+
+### v0.9.8
+
+Add `/music`. Thanks to [go-music](https://github.com/loadfield/go-music/)!
 
 ### v0.9.7 Happy New Year!
 
